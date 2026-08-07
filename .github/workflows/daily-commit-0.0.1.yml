@@ -1,0 +1,63 @@
+# .github/workflows/daily-commit-0.0.1.yml
+# github.com/shenjuexiao
+# 20260807
+
+# chat.deepseek.com/a/chat/s/fa86cd0e-7489-4d70-bab3-fc9674dd979a
+
+name: Daily Random Commit
+
+on:
+  schedule:
+    - cron: '0 0,8,16 * * *'  # 每天0点、8点、16点触发
+  workflow_dispatch:          # 支持手动触发
+
+jobs:
+  random-commit:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Set up Git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+      - name: Generate random commits
+        run: |
+          # 生成0-3之间的随机数
+          COMMIT_COUNT=$((RANDOM % 4))
+          echo "COMMIT_COUNT=$COMMIT_COUNT" >> $GITHUB_ENV
+          
+          for i in $(seq 1 $COMMIT_COUNT); do
+            # 生成随机内容
+            RANDOM_TEXT=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+            TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+            
+            # 更新日志文件
+            echo "$TIMESTAMP | Commit #$i | Random: $RANDOM_TEXT" >> daily-log.txt
+            
+            # 提交更改
+            git add daily-log.txt
+            git commit -m "Auto commit #$i at $TIMESTAMP [skip ci]"
+          done
+          
+      - name: Push changes
+        if: env.COMMIT_COUNT != '0'
+        run: |
+          git push origin HEAD:main
+          
+      - name: Log summary
+        run: |
+          echo "## 📊 Daily Commit Summary" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger Time:** $(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+          echo "**Commits Made:** ${{ env.COMMIT_COUNT }}" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 Recent Logs:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -10 daily-log.txt >> $GITHUB_STEP_SUMMARY || echo "No logs yet" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
