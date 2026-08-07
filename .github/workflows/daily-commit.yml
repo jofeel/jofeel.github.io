@@ -1,0 +1,60 @@
+# .github/workflows/daily-commit-0.0.0.yml
+# github.com/shenjuexiao
+# 20260807
+
+# chat.deepseek.com/a/chat/s/fa86cd0e-7489-4d70-bab3-fc9674dd979a
+
+name: Daily Commit
+
+on:
+  schedule:
+    # 每天 UTC 00:00 执行（北京时间 08:00）
+    - cron: '0 0 * * *'
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  daily-commit:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: Create or update daily log
+        run: |
+          # 获取当前日期时间（UTC+8）
+          DATE=$(date -u +"%Y-%m-%d")
+          TIME=$(date -u +"%H:%M:%S")
+          DATETIME="${DATE} ${TIME} (UTC)"
+          
+          # 如果文件不存在则创建
+          if [ ! -f daily-log.txt ]; then
+            echo "=== Daily Commit Log ===" > daily-log.txt
+            echo "Created: ${DATETIME}" >> daily-log.txt
+            echo "" >> daily-log.txt
+            COUNT=1
+          else
+            # 读取当前计数
+            COUNT=$(grep -c "^\[" daily-log.txt)
+            COUNT=$((COUNT + 1))
+          fi
+          
+          # 追加新记录
+          echo "[${COUNT}] ${DATETIME}" >> daily-log.txt
+          
+          echo "Commit #${COUNT} recorded at ${DATETIME}"
+          
+      - name: Commit and push changes
+        run: |
+          git add daily-log.txt
+          git commit -m "Daily commit #$(grep -c "^\[" daily-log.txt) - $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || echo "No changes to commit"
+          git push
