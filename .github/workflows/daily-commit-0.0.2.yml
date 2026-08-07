@@ -1,0 +1,101 @@
+# .github/workflows/daily-commit-0.0.2.yml
+# github.com/shenjuexiao
+# 20260807
+
+# chat.deepseek.com/a/chat/s/ecc39025-eadd-4a30-b16e-df8fca679cb9
+
+name: Daily Auto Commit
+
+on:
+  schedule:
+    # UTC 时间 0:00, 8:00, 16:00 (北京时间 8:00, 16:00, 0:00)
+    - cron: '0 0,8,16 * * *'
+  # 支持手动触发
+  workflow_dispatch:
+
+jobs:
+  auto-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Generate random commits
+        run: |
+          # 生成 0-3 之间的随机数
+          RANDOM_COUNT=$((RANDOM % 4))
+          echo "本次计划提交次数: $RANDOM_COUNT"
+          
+          # 获取当前时间
+          CURRENT_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+          CURRENT_DATE=$(date '+%Y-%m-%d')
+          
+          # 读取或初始化日志文件
+          LOG_FILE="daily-log.txt"
+          if [ ! -f "$LOG_FILE" ]; then
+            echo "日期,提交次数,提交时间列表" > "$LOG_FILE"
+          fi
+          
+          # 记录提交时间列表
+          COMMIT_TIMES=""
+          COMMIT_COUNT=0
+          
+          for i in $(seq 1 $RANDOM_COUNT); do
+            # 为每次提交生成不同的时间戳，确保内容变化
+            TIMESTAMP=$(date '+%Y%m%d_%H%M%S_%N')
+            FILE_NAME="commit_${TIMESTAMP}.txt"
+            
+            # 创建或更新文件
+            echo "提交 #$i 于 $(date '+%Y-%m-%d %H:%M:%S')" > "$FILE_NAME"
+            echo "随机数: $RANDOM" >> "$FILE_NAME"
+            echo "工作流触发时间: $CURRENT_TIME" >> "$FILE_NAME"
+            
+            # 添加到暂存区
+            git add "$FILE_NAME"
+            
+            # 提交
+            COMMIT_MSG="Daily auto-commit #$i [$(date '+%Y-%m-%d %H:%M:%S')]"
+            git commit -m "$COMMIT_MSG"
+            
+            # 记录提交时间
+            COMMIT_TIME=$(date '+%H:%M:%S')
+            if [ -z "$COMMIT_TIMES" ]; then
+              COMMIT_TIMES="$COMMIT_TIME"
+            else
+              COMMIT_TIMES="$COMMIT_TIMES, $COMMIT_TIME"
+            fi
+            COMMIT_COUNT=$((COMMIT_COUNT + 1))
+            
+            # 短暂延迟，确保时间戳不同
+            sleep 1
+          done
+          
+          # 更新日志文件
+          if [ $COMMIT_COUNT -gt 0 ]; then
+            echo "$CURRENT_DATE,$COMMIT_COUNT,\"$COMMIT_TIMES\"" >> "$LOG_FILE"
+            
+            # 将日志文件添加到提交
+            git add "$LOG_FILE"
+            git commit -m "Update daily log [$CURRENT_DATE]"
+          else
+            # 即使没有提交，也记录0次提交
+            echo "$CURRENT_DATE,0,\"无提交\"" >> "$LOG_FILE"
+            git add "$LOG_FILE"
+            git commit -m "Update daily log (0 commits) [$CURRENT_DATE]"
+          fi
+          
+          echo "实际提交次数: $COMMIT_COUNT"
+          echo "提交时间: $COMMIT_TIMES"
+
+      - name: Push changes
+        run: git push
